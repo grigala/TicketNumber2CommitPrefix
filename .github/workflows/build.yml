@@ -87,10 +87,16 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with:
+          pattern: '*.zip'
           path: dist
           merge-multiple: true
+          skip-decompress: true
+
+      - name: List release files
+        run: ls -la dist
 
       - uses: softprops/action-gh-release@v3
         with:
           files: dist/*.zip
+          fail_on_unmatched_files: true
           generate_release_notes: true
