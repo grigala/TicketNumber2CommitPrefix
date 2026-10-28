@@ -5,11 +5,25 @@
 
 ## Overview
 
-This repository implements an IntelliJ Platform plugin.
+Prefixes commit messages with the ticket key from the current Git branch name,
+e.g. branch `feature/TEST-123-implementation` gives the commit message prefix `TEST-123:`
 
-## Demo Functionality
+![img](demo/TicketNumber2CommitPrefix.gif)
 
-The sample plugin adds a `My Tool Window` tool window with a simple functionality of shuffling a random number.
+The **Insert Ticket Prefix** button in the commit message toolbar applies the prefix on demand.
+
+The plugin works fully offline: it bundles no third-party libraries and depends only on the
+IntelliJ Platform and the IDE's bundled Git plugin.
+
+## Installing from disk
+
+1. Download the plugin ZIP, either:
+    - from a [GitHub Release](../../releases) (published when a `v*` tag such as `v1.0.0` is pushed), or
+    - from the **Artifacts** section of any run of the [Build workflow](../../actions/workflows/build.yml).
+2. In the IDE open **Settings | Plugins**, click **⚙** and choose **Install Plugin from Disk...**
+3. Select the downloaded ZIP (don't unpack it) and restart the IDE.
+
+To build the ZIP locally run `./gradlew buildPlugin`; the file is written to `build/distributions/`.
 
 ## Plugin structure
 
@@ -58,18 +72,32 @@ It applies three Gradle plugins:
 The `intellijPlatform` dependencies block selects the IDE to compile against:
 
 ```kotlin
-intellijIdea("2025.3.6.1")
+intellijIdeaCommunity(oldestSupportedIde) // 2024.2.6
 ```
+
+### IDE compatibility
+
+The plugin supports IntelliJ IDEA **2024.2 and every later version**, without needing a new release for each IDE update:
+
+- It is compiled against the *oldest* supported IDE, so it can't accidentally use APIs that older versions lack.
+- `plugin.xml` gets no `until-build`, so newer IDEs never block installation.
+- It only uses stable public APIs (no internal or experimental ones).
+- `./gradlew verifyPlugin` runs the [Plugin Verifier][docs:intellij-platform-gradle-plugin-verifyPlugin]
+  against 2024.2 and all IntelliJ IDEA releases since 2025.3. CI runs it on every push and weekly,
+  so a future IDE release that breaks the plugin shows up as a failed workflow run.
+
+To support older IDEs, lower `oldestSupportedIde` / `oldestSupportedBuild` in `build.gradle.kts`
+(below 2024.2 the JVM target also has to be lowered to Java 17).
 
 See [Target Versions][docs:target-version] for more information.
 
-The `intellijPlatform` dependencies block also contains a dependency on the platform testing framework:
+The `intellijPlatform` dependencies block also adds the IDE's bundled Git plugin, used to read the current branch:
 
 ```kotlin
-testFramework(TestFrameworkType.Platform)
+bundledPlugin("Git4Idea")
 ```
 
-See [Testing][docs:testing] for more information
+See [Testing][docs:testing] for more information.
 
 ## Plugin configuration file
 

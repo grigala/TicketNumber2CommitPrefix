@@ -1,0 +1,96 @@
+# Builds the plugin ZIP that can be installed via Settings | Plugins | ⚙ | Install Plugin from Disk...
+#
+# - Every push / pull request: the ZIP is uploaded as a workflow artifact (Actions run page -> Artifacts).
+# - Pushing a tag like `v1.2.0`: additionally publishes a GitHub Release with the ZIP attached,
+#   using the tag (without the leading `v`) as the plugin version.
+# - Every push / pull request and weekly: the Plugin Verifier checks compatibility with the oldest supported
+#   IDE and all newer IntelliJ IDEA releases, so a new IDE release that breaks the plugin is noticed early.
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Determine plugin version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "args=-Pversion=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Test and build plugin
+        run: ./gradlew test buildPlugin ${{ steps.version.outputs.args }}
+
+      - name: Locate plugin ZIP
+        id: plugin
+        run: echo "path=$(ls build/distributions/*.zip)" >> "$GITHUB_OUTPUT"
+
+      # `archive: false` uploads the plugin ZIP as-is (named after the file), so it can be installed directly.
+      - uses: actions/upload-artifact@v7
+        with:
+          path: ${{ steps.plugin.outputs.path }}
+          archive: false
+
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      # The verifier downloads several full IDEs; make room on the runner.
+      - name: Free disk space
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Verify plugin compatibility
+        run: ./gradlew verifyPlugin
+
+      - name: Upload verifier report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: plugin-verifier-report
+          path: build/reports/pluginVerifier
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [ build, verify ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v3
+        with:
+          files: dist/*.zip
+          generate_release_notes: true

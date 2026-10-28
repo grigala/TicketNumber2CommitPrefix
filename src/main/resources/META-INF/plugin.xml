@@ -1,32 +1,70 @@
 <!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
     <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
-    <id>io.github.grigala.TicketNumber2CommitPrefix</id>
+    <id>io.github.grigala.ticket-number-to-commit-prefix</id>
 
     <!-- Public plugin name should be written in Title Case.
      Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-name -->
     <name>Ticket Number to Commit Prefix</name>
 
     <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
-    <vendor url="https://grigala.github.io">https://grigala.github.io</vendor>
+    <vendor url="https://grigala.github.io">George Grigalashvili</vendor>
 
     <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
     <description><![CDATA[
-        Enter short description for your plugin here.<br>
-        <em>most HTML tags may be used</em>
+        <p>
+        Saves you from typing the ticket key in every commit message. The plugin reads the key from
+        the current Git branch name(if present) and adds it to the start of the commit message.
+        </p>
+        <p>
+        For example, on branch <code>feature/TEST-123-implementation</code> the commit message starts
+        with <code>TEST-123:</code>
+        </p>
+
+
+        <h3>Features</h3>
+        <ul>
+            <li><b>Automatic prefix</b>: a new commit message gets the ticket key from the branch as its prefix.</li>
+            <li><b>Insert Ticket Prefix button</b>: a button in the commit message toolbar adds the prefix
+                on demand, e.g. after switching branches or when a draft message is already there.</li>
+            <li><b>No duplicates</b>: the prefix is never added twice if the message already starts with the ticket key.</li>
+            <li><b>Clear feedback</b>: if the branch has no ticket key, is detached, or there is no Git repository,
+                a notification tells you why no prefix was added.</li>
+            <li><b>Multi-repository support</b>: the branch is taken from the repository the changes belong to.</li>
+        </ul>
+
+        <h3>Supported branch names</h3>
+        <p>
+        Any branch containing a "TEST-123"-style key (uppercase project key, a dash, and a number) is supported, e.g.
+        </p>
+        <ul>
+            <li><code>feature/TEST-123-implementation</code> ➡️ <code>TEST-123: </code></li>
+            <li><code>bugfix/AB2-7_fix-login</code>  ➡️ <code>AB2-7: </code></li>
+            <li><code>PROJ-42</code> ➡️ <code>PROJ-42: </code></li>
+        </ul>
         ]]></description>
 
     <!-- Product and plugin compatibility requirements.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.modules.platform</depends>
+    <depends>Git4Idea</depends>
 
-    <resource-bundle>messages.MyMessageBundle</resource-bundle>
+    <resource-bundle>messages.MessageBundle</resource-bundle>
 
     <!-- Extensions defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow id="MyToolWindow" factoryClass="io.github.grigala.MyToolWindowFactory" icon="AllIcons.Toolwindows.ToolWindowPalette" />
+        <notificationGroup id="TicketNumber2CommitPrefix" displayType="BALLOON" key="notification.group.name"/>
+        <vcs.commitMessageProvider implementation="io.github.grigala.TicketCommitMessageProvider"/>
     </extensions>
+
+    <actions>
+        <action id="io.github.grigala.InsertTicketPrefix"
+            class="io.github.grigala.InsertTicketPrefixAction"
+            icon="AllIcons.Vcs.Branch">
+            <add-to-group group-id="Vcs.MessageActionGroup" anchor="first"/>
+        </action>
+    </actions>
 
 </idea-plugin>
